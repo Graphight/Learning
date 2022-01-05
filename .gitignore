@@ -10,6 +10,7 @@ ipython_config.py
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow
 __pypackages__/
+__pycache__/
 
 # My credentials
 */helper.py
