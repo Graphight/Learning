@@ -5,16 +5,16 @@ I will **try** to keep it tidy and project based (each internal project should b
 
 I was very lazy for most of the python projects and just used a generic virtual environment with a bunch of packages installed. **Sometime in the future I will actually make individual poetry environments to be somewhat professional**. In the meantime, if you really want to run these then run a cheeky `pip install -r --user bloated_requirements.txt` to get my awfully bloated generic environment.
 
+## [Data Science - Bayesian Statistics](https://github.com/Graphight/Learning#DS-BayesianStatistics)
+  Exploration of the Bayesian statistical modeling in Python using **PyMC3**
+  * Predicting future performance of Rugby teams in the Six Nations championship
+
 ## [Data Science - Deep Learning](https://github.com/Graphight/Learning#DS-DeepLearning)
   Exploration of Deep Learning in Python using **Keras**
   
 ## [Data Science - Natural Language Processing](https://github.com/Graphight/Learning#DS-NLP)
   Exploration of Natural Language Processing in Python using **NLTK**
   * Creating a Twitter scraping sentiment analyser
-
-## [Data Science - Bayesian Statistics](https://github.com/Graphight/Learning#DS-BayesianStatistics)
-  Exploration of the Bayesian statistical modeling in Python using **PyMC3**
-  * Predicting future performance of Rugby teams in the Six Nations championship
   
 ## [Data Science - Reinforcement Learning](https://github.com/Graphight/Learning#DS-ReinforcementLearning)
   Exploration of Reinforcement Learning in Python using **StableBaselines3**
