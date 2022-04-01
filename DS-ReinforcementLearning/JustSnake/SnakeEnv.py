@@ -1,6 +1,5 @@
 from gym import spaces
 from collections import deque
-from tqdm.auto import tqdm
 
 import numpy as np
 
@@ -18,7 +17,7 @@ IMG_TITLE = "Snek Game"
 
 APPLE_REWARD = 100_000
 SNAKE_LEN_GOAL = 30
-SIM_SPEED = 0.01   # Delay in seconds between frames
+SIM_SPEED = 0.001   # Delay in seconds between frames
 
 
 class SnekEnv(gym.Env):
@@ -31,7 +30,7 @@ class SnekEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=0, 
             high=GRID_SIZE, 
-            shape=(6 + SNAKE_LEN_GOAL,),
+            shape=(7 + SNAKE_LEN_GOAL,),
             dtype=np.int64
         )
 
@@ -84,13 +83,12 @@ class SnekEnv(gym.Env):
         img = np.zeros((400, 600, 3), dtype='uint8')
         mean_reward = sum(self.prev_rewards) / self.num_actions
 
-        cv2.putText(img, f"Current Score: {self.score}", (200, 100), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
-        cv2.putText(img, f"This life, last {SNAKE_LEN_GOAL} moves", (150, 200), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
-        cv2.putText(img, f"Avg reward: {mean_reward:,.3f}", (200, 300), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
-        cv2.imshow("stats", img)
+        cv2.putText(img, f"Current Score: {self.score}", (175, 100), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(img, f"This life, last {SNAKE_LEN_GOAL} moves", (125, 200), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(img, f"Avg reward: {mean_reward:,.3f}", (175, 300), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.imshow(f"{IMG_TITLE} stats", img)
 
     def determine_observations(self):
-        # determine the observation
         self.head_x = self.snake_head[0]
         self.head_y = self.snake_head[1]
         self.snake_length = len(self.snake_position)
@@ -108,8 +106,19 @@ class SnekEnv(gym.Env):
         # Normalised Manhattan distance - very negative [-0.75 : 0.25]
         # reward = ((GRID_SIZE // 2) - distance_man) / MAX_DISTANCE
 
+        # Manhattan distance - allow negatives
+        reward = GRID_SIZE - distance_man
+
         # Manhattan distance - very negative
-        reward = (GRID_SIZE // 2) - distance_man
+        # reward = (GRID_SIZE // 2) - distance_man
+
+        # Manhatten distance - very negative - try to beat last score
+        # reward = (GRID_SIZE // 2) - distance_man
+        # if reward < self.prev_reward:
+        #     reward -= abs(reward * 0.2)
+
+        # Reward moving in straight lines
+        reward += self.same_moves
 
         return reward
     
@@ -160,6 +169,12 @@ class SnekEnv(gym.Env):
             button_direction = 2
         else:
             button_direction = self.prev_button_direction
+
+        if button_direction == self.prev_button_direction:
+            self.same_moves += 1
+        else:
+            self.same_moves = 0
+
         self.prev_button_direction = button_direction
         self.prev_actions.append(button_direction)
         
@@ -192,21 +207,23 @@ class SnekEnv(gym.Env):
         self.reward += self.determine_reward(self.distance_man)
 
         if self.done:
-            self.reward = (-0.1 * APPLE_REWARD)
+            self.reward = -APPLE_REWARD
         info = {}
 
         self.num_actions += 1
+        self.prev_reward = self.reward
         self.prev_rewards.append(self.reward)
         self.generate_stats_screen()
                 
         # Create observation
-        observation = [self.head_x, self.head_y, self.apple_delta_x, self.apple_delta_y, self.snake_length, self.distance_man] + list(self.prev_actions)
+        observation = [self.head_x, self.head_y, self.apple_delta_x, self.apple_delta_y, self.snake_length, self.distance_man, self.same_moves] + list(self.prev_actions)
         observation = np.array(observation)
 
         return observation, self.reward, self.done, info
     
     def reset(self):        
         self.reward = 0
+        self.prev_reward = 0
         self.score = 0
         self.same_moves = 0
         
@@ -233,14 +250,13 @@ class SnekEnv(gym.Env):
         self.prev_actions = deque([-1] * SNAKE_LEN_GOAL, maxlen=SNAKE_LEN_GOAL)
 
         # Create observation
-        observation = [self.head_x, self.head_y, self.apple_delta_x, self.apple_delta_y, self.snake_length, self.distance_man] + list(self.prev_actions)
+        observation = [self.head_x, self.head_y, self.apple_delta_x, self.apple_delta_y, self.snake_length, self.distance_man, self.same_moves] + list(self.prev_actions)
         observation = np.array(observation)
         
         return observation
-
         
-
-def main():
+        
+if __name__ == "__main__":
     from stable_baselines3 import PPO
     import os
     import time
@@ -266,7 +282,3 @@ def main():
         model.save(f"{models_dir}/{TIMESTEPS * iters}")
 
     cv2.destroyAllWindows()
-        
-        
-if __name__ == "__main__":
-    main()
