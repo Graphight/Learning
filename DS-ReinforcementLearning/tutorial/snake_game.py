@@ -26,7 +26,7 @@ def collision_with_self(snake_position):
         return 0
 
 
-def run_game():
+def run_game(speed: float=0.2):
     img = np.zeros((500,500,3),dtype='uint8')
     # Initial Snake and Apple position
     snake_position = [[250,250],[240,250],[230,250]]
@@ -46,7 +46,7 @@ def run_game():
             cv2.rectangle(img,(position[0],position[1]),(position[0]+10,position[1]+10),(0,255,0),3)
 
         # Takes step after fixed time
-        t_end = time.time() + 0.01
+        t_end = time.time() + speed
         k = -1
         while time.time() < t_end:
             if k == -1:
