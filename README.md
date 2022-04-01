@@ -12,7 +12,7 @@ I was very lazy for most of the python projects and just used a generic virtual 
   Exploration of Natural Language Processing in Python using **NLTK**
   * Creating a Twitter scraping sentiment analyser
 
-## [Data Science - PyMC](https://github.com/Graphight/Learning#DS-PyMC)
+## [Data Science - Bayesian Statistics](https://github.com/Graphight/Learning#DS-BayesianStatistics)
   Exploration of the Bayesian statistical modeling in Python using **PyMC3**
   * Predicting future performance of Rugby teams in the Six Nations championship
   
