@@ -69,10 +69,25 @@ class SnekEnv(gym.Env):
                 if norm_distance_man >= 0:
                     row.append([norm_distance_man] * 3)
                 else:
-                    row.append([-norm_distance_man, 0, 0])
+                    row.append([-norm_distance_man, 0.0, 0.0])
             rows.append(row)
 
-        self.cached_background = np.array(rows)
+        # Scale the array between 0 and 1 for the pixel values
+        img = np.array(rows)
+        if img.max() > 0:
+            img *= 1.0 / img.max()
+
+        self.cached_background = img
+
+    def generate_stats_screen(self):
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        img = np.zeros((400, 600, 3), dtype='uint8')
+        mean_reward = sum(self.prev_rewards) / self.num_actions
+
+        cv2.putText(img, f"Current Score: {self.score}", (200, 100), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(img, f"This life, last {SNAKE_LEN_GOAL} moves", (150, 200), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(img, f"Avg reward: {mean_reward:,.3f}", (200, 300), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.imshow("stats", img)
 
     def determine_observations(self):
         # determine the observation
@@ -84,7 +99,19 @@ class SnekEnv(gym.Env):
         self.distance_man = abs(self.apple_delta_x) + abs(self.apple_delta_y)
 
     def determine_reward(self, distance_man):
-        return (GRID_SIZE // 2 - distance_man) / GRID_SIZE
+        # Normalised Manhattan distance - only positives [0 : 1]
+        # reward = (MAX_DISTANCE - distance_man) / MAX_DISTANCE
+
+        # Normalised Manhattan distance - allow negatives [-0.5 : 0.5]
+        # reward = (GRID_SIZE - distance_man) / MAX_DISTANCE
+
+        # Normalised Manhattan distance - very negative [-0.75 : 0.25]
+        # reward = ((GRID_SIZE // 2) - distance_man) / MAX_DISTANCE
+
+        # Manhattan distance - very negative
+        reward = (GRID_SIZE // 2) - distance_man
+
+        return reward
     
     def step(self, action):
         self.reward = 0
@@ -152,6 +179,7 @@ class SnekEnv(gym.Env):
             self.snake_position.insert(0, list(self.snake_head))
             self.reward += APPLE_REWARD
             self.generate_reward_background()
+            self.score += 1
         else:
             self.snake_position.insert(0, list(self.snake_head))
             self.snake_position.pop()
@@ -166,6 +194,10 @@ class SnekEnv(gym.Env):
         if self.done:
             self.reward = (-0.1 * APPLE_REWARD)
         info = {}
+
+        self.num_actions += 1
+        self.prev_rewards.append(self.reward)
+        self.generate_stats_screen()
                 
         # Create observation
         observation = [self.head_x, self.head_y, self.apple_delta_x, self.apple_delta_y, self.snake_length, self.distance_man] + list(self.prev_actions)
@@ -175,6 +207,7 @@ class SnekEnv(gym.Env):
     
     def reset(self):        
         self.reward = 0
+        self.score = 0
         self.same_moves = 0
         
         # Initial Snake and Apple position
@@ -190,21 +223,17 @@ class SnekEnv(gym.Env):
         self.generate_reward_background()
         self.img = self.cached_background.copy()
 
-        self.prev_reward = 0
         self.done = False
-        
+
         # Determine the observation
-        head_x = self.snake_head[0]
-        head_y = self.snake_head[1]
-        snake_length = len(self.snake_position)
-        apple_delta_x = head_x - (self.apple_position[0] + CELL_SIZE // 2)
-        apple_delta_y = head_y - (self.apple_position[1] + CELL_SIZE // 2)
-        distance_man = abs(apple_delta_x) + abs(apple_delta_y)
-        
+        self.determine_observations()
+
+        self.num_actions = 0
+        self.prev_rewards = deque([0] * SNAKE_LEN_GOAL, maxlen=SNAKE_LEN_GOAL)
         self.prev_actions = deque([-1] * SNAKE_LEN_GOAL, maxlen=SNAKE_LEN_GOAL)
-                
+
         # Create observation
-        observation = [head_x, head_y, apple_delta_x, apple_delta_y, snake_length, distance_man] + list(self.prev_actions)
+        observation = [self.head_x, self.head_y, self.apple_delta_x, self.apple_delta_y, self.snake_length, self.distance_man] + list(self.prev_actions)
         observation = np.array(observation)
         
         return observation
