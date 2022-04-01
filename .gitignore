@@ -19,8 +19,8 @@ __pycache__/
 *.idea
 
 # Data Files
-*.parquet
-*.csv
-*.zip
+**.parquet
+**.csv
+**.zip
 
 
