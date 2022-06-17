@@ -30,17 +30,17 @@ class SnekEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=0, 
             high=GRID_SIZE, 
-            shape=(7 + SNAKE_LEN_GOAL,),
+            shape=(7,),
             dtype=np.int64
         )
 
     def collision_with_boundaries(self):
-        return sum([
+        return any([
             (self.snake_head[0] >= GRID_SIZE),
             (self.snake_head[0] < 0),
             (self.snake_head[1] >= GRID_SIZE),
             (self.snake_head[1] < 0)
-        ]) >= 1
+        ])
 
     def collision_with_self(self):
         snake_head = self.snake_position[0]
@@ -51,8 +51,9 @@ class SnekEnv(gym.Env):
 
     def generate_apple_position(self):
         return [
-            random.randrange(1, GRID_SIZE // CELL_SIZE) * CELL_SIZE,
-            random.randrange(1, GRID_SIZE // CELL_SIZE) * CELL_SIZE
+            # random.randrange(0, GRID_SIZE, CELL_SIZE),
+            # random.randrange(0, GRID_SIZE, CELL_SIZE)
+            100,100
         ]
 
     def generate_reward_background(self):
@@ -64,7 +65,8 @@ class SnekEnv(gym.Env):
                 apple_delta_x = x - (self.apple_position[0] + CELL_SIZE // 2)
                 apple_delta_y = y - (self.apple_position[1] + CELL_SIZE // 2)
                 distance_man = abs(apple_delta_x) + abs(apple_delta_y)
-                norm_distance_man = self.determine_reward(distance_man)
+                # norm_distance_man = float(self.determine_reward(distance_man))
+                norm_distance_man = (GRID_SIZE - distance_man) / MAX_DISTANCE
                 if norm_distance_man >= 0:
                     row.append([norm_distance_man] * 3)
                 else:
@@ -73,27 +75,29 @@ class SnekEnv(gym.Env):
 
         # Scale the array between 0 and 1 for the pixel values
         img = np.array(rows)
-        if img.max() > 0:
+        if img.max() > 0.0:
             img *= 1.0 / img.max()
 
         self.cached_background = img
 
     def generate_stats_screen(self):
         font = cv2.FONT_HERSHEY_SIMPLEX
-        img = np.zeros((400, 600, 3), dtype='uint8')
+        img = np.zeros((600, 600, 3), dtype='uint8')
         mean_reward = sum(self.prev_rewards) / self.num_actions
 
         cv2.putText(img, f"Current Score: {self.score}", (175, 100), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
         cv2.putText(img, f"This life, last {SNAKE_LEN_GOAL} moves", (125, 200), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
         cv2.putText(img, f"Avg reward: {mean_reward:,.3f}", (175, 300), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(img, f"Min Distance: {self.min_distance:,.3f}", (125, 400), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(img, f"Cur Distance: {self.distance_man:,.3f}", (125, 500), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
         cv2.imshow(f"{IMG_TITLE} stats", img)
 
     def determine_observations(self):
         self.head_x = self.snake_head[0]
         self.head_y = self.snake_head[1]
         self.snake_length = len(self.snake_position)
-        self.apple_delta_x = self.head_x - (self.apple_position[0] + CELL_SIZE // 2)
-        self.apple_delta_y = self.head_y - (self.apple_position[1] + CELL_SIZE // 2)
+        self.apple_delta_x = self.head_x - self.apple_position[0]
+        self.apple_delta_y = self.head_y - self.apple_position[1]
         self.distance_man = abs(self.apple_delta_x) + abs(self.apple_delta_y)
 
     def determine_reward(self, distance_man):
@@ -101,13 +105,14 @@ class SnekEnv(gym.Env):
         # reward = (MAX_DISTANCE - distance_man) / MAX_DISTANCE
 
         # Normalised Manhattan distance - allow negatives [-0.5 : 0.5]
-        # reward = (GRID_SIZE - distance_man) / MAX_DISTANCE
+        reward = (GRID_SIZE - distance_man) / MAX_DISTANCE
+        self.min_distance = distance_man if distance_man < self.min_distance else self.min_distance
 
         # Normalised Manhattan distance - very negative [-0.75 : 0.25]
         # reward = ((GRID_SIZE // 2) - distance_man) / MAX_DISTANCE
 
         # Manhattan distance - allow negatives
-        reward = GRID_SIZE - distance_man
+        # reward = GRID_SIZE - distance_man
 
         # Manhattan distance - very negative
         # reward = (GRID_SIZE // 2) - distance_man
@@ -118,7 +123,14 @@ class SnekEnv(gym.Env):
         #     reward -= abs(reward * 0.2)
 
         # Reward moving in straight lines
-        reward += self.same_moves
+        reward += (self.same_moves)
+
+        # Only reward if moving closer
+        # if distance_man < self.min_distance:
+        #     reward = 1
+        #     self.min_distance = distance_man
+        # else:
+        #     reward = 0
 
         return reward
     
@@ -195,6 +207,7 @@ class SnekEnv(gym.Env):
             self.reward += APPLE_REWARD
             self.generate_reward_background()
             self.score += 1
+            self.min_distance = MAX_DISTANCE
         else:
             self.snake_position.insert(0, list(self.snake_head))
             self.snake_position.pop()
@@ -202,12 +215,11 @@ class SnekEnv(gym.Env):
         # On collision kill the snake
         if self.collision_with_boundaries() or self.collision_with_self():
             self.done = True
+            self.reward = -APPLE_REWARD
         
         self.determine_observations()
         self.reward += self.determine_reward(self.distance_man)
 
-        if self.done:
-            self.reward = -APPLE_REWARD
         info = {}
 
         self.num_actions += 1
@@ -216,16 +228,17 @@ class SnekEnv(gym.Env):
         self.generate_stats_screen()
                 
         # Create observation
-        observation = [self.head_x, self.head_y, self.apple_delta_x, self.apple_delta_y, self.snake_length, self.distance_man, self.same_moves] + list(self.prev_actions)
+        observation = [self.head_x, self.head_y, self.apple_delta_x, self.apple_delta_y, self.distance_man, self.min_distance, self.prev_actions[-1]]
         observation = np.array(observation)
 
         return observation, self.reward, self.done, info
     
-    def reset(self):        
+    def reset(self):
         self.reward = 0
         self.prev_reward = 0
         self.score = 0
         self.same_moves = 0
+        self.min_distance = MAX_DISTANCE
         
         # Initial Snake and Apple position
         self.snake_position = [
@@ -250,14 +263,14 @@ class SnekEnv(gym.Env):
         self.prev_actions = deque([-1] * SNAKE_LEN_GOAL, maxlen=SNAKE_LEN_GOAL)
 
         # Create observation
-        observation = [self.head_x, self.head_y, self.apple_delta_x, self.apple_delta_y, self.snake_length, self.distance_man, self.same_moves] + list(self.prev_actions)
+        observation = [self.head_x, self.head_y, self.apple_delta_x, self.apple_delta_y, self.distance_man, self.min_distance, self.prev_actions[-1]]
         observation = np.array(observation)
         
         return observation
         
         
 if __name__ == "__main__":
-    from stable_baselines3 import PPO
+    from stable_baselines3 import PPO, DQN
     import os
     import time
 
@@ -273,12 +286,11 @@ if __name__ == "__main__":
     env.reset()
 
     model = PPO('MlpPolicy', env, verbose=1, tensorboard_log=logdir)
+    # model = DQN('MlpPolicy', env, verbose=1, tensorboard_log=logdir)
 
     TIMESTEPS = 10000
-    iters = 0
-    while iters < 10:
-        iters += 1
+    while True:
         model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name=f"PPO")
-        model.save(f"{models_dir}/{TIMESTEPS * iters}")
+        model.save(f"{models_dir}/{TIMESTEPS}")
 
     cv2.destroyAllWindows()
