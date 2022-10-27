@@ -15,7 +15,7 @@ GRID_SIZE = 500
 MAX_DISTANCE = GRID_SIZE * 2
 IMG_TITLE = "Snek Game"
 
-APPLE_REWARD = 100_000
+APPLE_REWARD = 1_000
 SNAKE_LEN_GOAL = 30
 SIM_SPEED = 0.001   # Delay in seconds between frames
 
@@ -105,14 +105,14 @@ class SnekEnv(gym.Env):
         # reward = (MAX_DISTANCE - distance_man) / MAX_DISTANCE
 
         # Normalised Manhattan distance - allow negatives [-0.5 : 0.5]
-        reward = (GRID_SIZE - distance_man) / MAX_DISTANCE
+        # reward = (GRID_SIZE - distance_man) / MAX_DISTANCE
         self.min_distance = distance_man if distance_man < self.min_distance else self.min_distance
 
         # Normalised Manhattan distance - very negative [-0.75 : 0.25]
         # reward = ((GRID_SIZE // 2) - distance_man) / MAX_DISTANCE
 
         # Manhattan distance - allow negatives
-        # reward = GRID_SIZE - distance_man
+        reward = GRID_SIZE - distance_man
 
         # Manhattan distance - very negative
         # reward = (GRID_SIZE // 2) - distance_man
@@ -288,7 +288,7 @@ if __name__ == "__main__":
     model = PPO('MlpPolicy', env, verbose=1, tensorboard_log=logdir)
     # model = DQN('MlpPolicy', env, verbose=1, tensorboard_log=logdir)
 
-    TIMESTEPS = 10000
+    TIMESTEPS = 100
     while True:
         model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name=f"PPO")
         model.save(f"{models_dir}/{TIMESTEPS}")
