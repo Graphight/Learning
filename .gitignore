@@ -13,7 +13,7 @@ __pypackages__/
 __pycache__/
 
 # My credentials
-*/helper.py
+**.secret_json
 
 # IntelliJ
 *.idea
@@ -22,5 +22,4 @@ __pycache__/
 **.parquet
 **.csv
 **.zip
-
 
